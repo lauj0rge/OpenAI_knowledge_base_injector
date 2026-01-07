@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Root stack for orion knowledge base ingestion platform (nested stacks only).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: orion
+    Description: Project identifier used in resource names.
+  Environment:
+    Type: String
+    Default: dev
+    Description: Deployment environment (e.g., dev, staging, prod).
+  Version:
+    Type: String
+    Default: v1
+    Description: Version suffix for resource names.
+  TemplateBucket:
+    Type: String
+    Description: S3 bucket containing nested stack templates.
+  TemplatePrefix:
+    Type: String
+    Default: cloudformation/stacks
+    Description: Prefix for nested templates inside the TemplateBucket.
+  StateMachineBucket:
+    Type: String
+    Description: S3 bucket containing Step Functions ASL definitions.
+  StateMachinePrefix:
+    Type: String
+    Default: cloudformation/state-machines
+    Description: Prefix for state machine definition files.
+
+Resources:
+  S3Stack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/s3.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/dynamodb.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+
+  SQSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/sqs.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+
+  SNSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/sns.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+
+  IAMStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/iam.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+        CommandLedgerTableArn: !GetAtt DynamoDBStack.Outputs.CommandLedgerTableArn
+        ObjectMetadataTableArn: !GetAtt DynamoDBStack.Outputs.ObjectMetadataTableArn
+        NotificationTopicArn: !GetAtt SNSStack.Outputs.NotificationTopicArn
+        IngestionQueueArn: !GetAtt SQSStack.Outputs.IngestionQueueArn
+
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/lambdas.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+        LambdaExecutionRoleArn: !GetAtt IAMStack.Outputs.LambdaExecutionRoleArn
+
+  ECSPrechunkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/ecs-prechunk.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+        TaskExecutionRoleArn: !GetAtt IAMStack.Outputs.EcsTaskExecutionRoleArn
+        TaskRoleArn: !GetAtt IAMStack.Outputs.EcsTaskRoleArn
+
+  StepFunctionsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/step-functions.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+        StateMachineBucket: !Ref StateMachineBucket
+        StateMachinePrefix: !Ref StateMachinePrefix
+        StepFunctionsExecutionRoleArn: !GetAtt IAMStack.Outputs.StepFunctionsExecutionRoleArn
+        IngestionQueueArn: !GetAtt SQSStack.Outputs.IngestionQueueArn
+        ReconcilerScheduleExpression: rate(15 minutes)
+
+  EventBridgeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplateBucket}.s3.amazonaws.com/${TemplatePrefix}/eventbridge.yaml"
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        Version: !Ref Version
+        IngestionQueueArn: !GetAtt SQSStack.Outputs.IngestionQueueArn
+        IngestionQueueUrl: !GetAtt SQSStack.Outputs.IngestionQueueUrl
+        SourceBucketArn: !GetAtt S3Stack.Outputs.SourceBucketArn
+
+Outputs:
+  SourceBucketName:
+    Value: !GetAtt S3Stack.Outputs.SourceBucketName
+  CommandLedgerTableName:
+    Value: !GetAtt DynamoDBStack.Outputs.CommandLedgerTableName
+  IngestionQueueUrl:
+    Value: !GetAtt SQSStack.Outputs.IngestionQueueUrl

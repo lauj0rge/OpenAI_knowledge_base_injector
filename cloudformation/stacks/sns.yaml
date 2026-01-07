@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SNS topic for non-blocking notifications and webhooks.
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  Version:
+    Type: String
+
+Resources:
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectName}-${Environment}-notifications-${Version}"
+
+Outputs:
+  NotificationTopicArn:
+    Value: !Ref NotificationTopic

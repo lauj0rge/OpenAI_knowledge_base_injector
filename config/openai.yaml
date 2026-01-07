@@ -1,0 +1,12 @@
+# OpenAI limits and operational constraints.
+# These values are enforced by the ingestion planner and reconciler.
+vector_store_limits:
+  max_files_per_store: 10000
+  max_vector_stores_per_assistant: 1
+  max_vector_stores_per_thread: 1
+processing:
+  eventual_consistency_seconds: 300
+  default_poll_interval_seconds: 10
+  max_poll_attempts: 60
+rate_limits:
+  max_concurrent_requests: 5

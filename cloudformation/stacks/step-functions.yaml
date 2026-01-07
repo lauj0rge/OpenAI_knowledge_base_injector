@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Step Functions state machines for ingestion and reconciliation.
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  Version:
+    Type: String
+  StateMachineBucket:
+    Type: String
+  StateMachinePrefix:
+    Type: String
+  StepFunctionsExecutionRoleArn:
+    Type: String
+  IngestionQueueArn:
+    Type: String
+  ReconcilerScheduleExpression:
+    Type: String
+
+Resources:
+  IngestionStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "${ProjectName}-${Environment}-ingestion-${Version}"
+      RoleArn: !Ref StepFunctionsExecutionRoleArn
+      DefinitionS3Location:
+        Bucket: !Ref StateMachineBucket
+        Key: !Sub "${StateMachinePrefix}/ingestion-v2.asl.json"
+
+  ReconcilerStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "${ProjectName}-${Environment}-reconciler-${Version}"
+      RoleArn: !Ref StepFunctionsExecutionRoleArn
+      DefinitionS3Location:
+        Bucket: !Ref StateMachineBucket
+        Key: !Sub "${StateMachinePrefix}/reconciler.asl.json"
+
+  ReconcilerSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-reconciler-schedule-${Version}"
+      ScheduleExpression: !Ref ReconcilerScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !Ref ReconcilerStateMachine
+          Id: reconciler
+          RoleArn: !Ref StepFunctionsExecutionRoleArn
+
+Outputs:
+  IngestionStateMachineArn:
+    Value: !Ref IngestionStateMachine
+  ReconcilerStateMachineArn:
+    Value: !Ref ReconcilerStateMachine

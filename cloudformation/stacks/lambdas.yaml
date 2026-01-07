@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda function resources for ingestion and reconciliation.
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  Version:
+    Type: String
+  LambdaExecutionRoleArn:
+    Type: String
+  CodeBucket:
+    Type: String
+    Default: placeholder-bucket
+  CodePrefix:
+    Type: String
+    Default: lambda
+
+Resources:
+  NormalizeEventFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-normalize-event-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/normalize-event.zip"
+
+  CommandLedgerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-command-ledger-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/command-ledger.zip"
+
+  DecideOperationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-decide-operation-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/decide-operation.zip"
+
+  EnsureVectorStoreFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-ensure-vector-store-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/ensure-vector-store.zip"
+
+  PlanIngestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-plan-ingest-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/plan-ingest.zip"
+
+  UploadFileFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-upload-file-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/upload-file.zip"
+
+  PrechunkDispatchFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-prechunk-dispatch-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/prechunk-dispatch.zip"
+
+  AttachVectorStoreFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-attach-vector-store-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/attach-vector-store.zip"
+
+  PollOpenAIFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-poll-openai-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/poll-openai.zip"
+
+  CommitResultFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-commit-result-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/commit-result.zip"
+
+  NotifyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-notify-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 15
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/notify.zip"
+
+  ReconcilerScanFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-reconciler-scan-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 60
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/reconciler-scan.zip"
+
+  ReconcilerRepairFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-reconciler-repair-${Version}"
+      Runtime: python3.11
+      Handler: handler.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 60
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Sub "${CodePrefix}/reconciler-repair.zip"
+
+Outputs:
+  NormalizeEventFunctionArn:
+    Value: !GetAtt NormalizeEventFunction.Arn
+  CommandLedgerFunctionArn:
+    Value: !GetAtt CommandLedgerFunction.Arn
+  DecideOperationFunctionArn:
+    Value: !GetAtt DecideOperationFunction.Arn
+  EnsureVectorStoreFunctionArn:
+    Value: !GetAtt EnsureVectorStoreFunction.Arn
+  PlanIngestFunctionArn:
+    Value: !GetAtt PlanIngestFunction.Arn
+  UploadFileFunctionArn:
+    Value: !GetAtt UploadFileFunction.Arn
+  PrechunkDispatchFunctionArn:
+    Value: !GetAtt PrechunkDispatchFunction.Arn
+  AttachVectorStoreFunctionArn:
+    Value: !GetAtt AttachVectorStoreFunction.Arn
+  PollOpenAIFunctionArn:
+    Value: !GetAtt PollOpenAIFunction.Arn
+  CommitResultFunctionArn:
+    Value: !GetAtt CommitResultFunction.Arn
+  NotifyFunctionArn:
+    Value: !GetAtt NotifyFunction.Arn
+  ReconcilerScanFunctionArn:
+    Value: !GetAtt ReconcilerScanFunction.Arn
+  ReconcilerRepairFunctionArn:
+    Value: !GetAtt ReconcilerRepairFunction.Arn

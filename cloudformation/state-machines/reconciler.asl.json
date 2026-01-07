@@ -1,0 +1,26 @@
+{
+  "Comment": "Scheduled reconciliation for stuck ingestion, orphaned OpenAI files, and incomplete deletes.",
+  "StartAt": "Scan",
+  "States": {
+    "Scan": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ReconcilerScanFunctionArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.scan",
+      "Next": "Repair"
+    },
+    "Repair": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ReconcilerRepairFunctionArn}",
+        "Payload.$": "$.scan"
+      },
+      "ResultPath": "$.repair",
+      "End": true
+    }
+  }
+}

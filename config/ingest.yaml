@@ -1,0 +1,12 @@
+# Ingestion workflow thresholds and timing controls.
+# Keep these values configurable to avoid hardcoded operational limits.
+large_file_bytes_threshold: 10485760
+prechunk:
+  chunk_size_bytes: 524288
+  overlap_bytes: 65536
+  deterministic_hash: sha256
+polling:
+  timeout_seconds: 900
+  backoff_seconds: 5
+notifications:
+  enabled: true
