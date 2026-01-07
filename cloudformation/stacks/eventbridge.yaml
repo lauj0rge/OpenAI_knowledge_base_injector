@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EventBridge rule routing S3 events to FIFO SQS for ordered ingestion.
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  Version:
+    Type: String
+  IngestionQueueArn:
+    Type: String
+  IngestionQueueUrl:
+    Type: String
+  SourceBucketArn:
+    Type: String
+
+Resources:
+  IngestionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-s3-events-${Version}"
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+          - Object Deleted
+        resources:
+          - !Ref SourceBucketArn
+      Targets:
+        - Arn: !Ref IngestionQueueArn
+          Id: ingestion-queue
+          SqsParameters:
+            MessageGroupId: "$.detail.object.key"
+
+  IngestionRulePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref IngestionQueueUrl
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !Ref IngestionQueueArn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt IngestionRule.Arn

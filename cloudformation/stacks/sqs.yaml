@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: FIFO SQS queue and DLQ for ingestion commands.
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  Version:
+    Type: String
+  MaxReceiveCount:
+    Type: Number
+    Default: 5
+
+Resources:
+  IngestionDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${ProjectName}-${Environment}-ingestion-dlq-${Version}.fifo"
+      FifoQueue: true
+      ContentBasedDeduplication: true
+
+  IngestionQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${ProjectName}-${Environment}-ingestion-${Version}.fifo"
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt IngestionDLQ.Arn
+        maxReceiveCount: !Ref MaxReceiveCount
+
+Outputs:
+  IngestionQueueArn:
+    Value: !GetAtt IngestionQueue.Arn
+  IngestionQueueUrl:
+    Value: !Ref IngestionQueue
+  IngestionDLQArn:
+    Value: !GetAtt IngestionDLQ.Arn

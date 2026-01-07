@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS Fargate task definition for deterministic pre-chunking of large files.
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  Version:
+    Type: String
+  TaskExecutionRoleArn:
+    Type: String
+  TaskRoleArn:
+    Type: String
+  PrechunkImage:
+    Type: String
+    Default: public.ecr.aws/amazonlinux/amazonlinux:latest
+
+Resources:
+  PrechunkCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${ProjectName}-${Environment}-prechunk-${Version}"
+
+  PrechunkTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${ProjectName}-${Environment}-prechunk-${Version}"
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '1024'
+      Memory: '2048'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: prechunk
+          Image: !Ref PrechunkImage
+          Essential: true
+          EntryPoint:
+            - /bin/sh
+            - -c
+          Command:
+            - "python -m prechunk.handler"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "/${ProjectName}/${Environment}/prechunk/${Version}"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+Outputs:
+  PrechunkClusterArn:
+    Value: !GetAtt PrechunkCluster.Arn
+  PrechunkTaskDefinitionArn:
+    Value: !Ref PrechunkTaskDefinition

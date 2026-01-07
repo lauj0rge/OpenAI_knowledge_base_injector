@@ -1,0 +1,162 @@
+{
+  "Comment": "Ingestion workflow with idempotent command ledger and OpenAI eventual consistency handling.",
+  "StartAt": "NormalizeEvent",
+  "States": {
+    "NormalizeEvent": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NormalizeEventFunctionArn}",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.normalized",
+      "Next": "CreateCommandLedgerEntry"
+    },
+    "CreateCommandLedgerEntry": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CommandLedgerFunctionArn}",
+        "Payload.$": "$.normalized"
+      },
+      "ResultPath": "$.ledger",
+      "Next": "DecideOperation"
+    },
+    "DecideOperation": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${DecideOperationFunctionArn}",
+        "Payload.$": "$.ledger"
+      },
+      "ResultPath": "$.operation",
+      "Next": "OperationChoice"
+    },
+    "OperationChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.operation.Payload.command",
+          "StringEquals": "NOOP",
+          "Next": "CommitNoop"
+        },
+        {
+          "Variable": "$.operation.Payload.command",
+          "StringEquals": "DELETE",
+          "Next": "TombstoneDelete"
+        }
+      ],
+      "Default": "EnsureVectorStore"
+    },
+    "EnsureVectorStore": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${EnsureVectorStoreFunctionArn}",
+        "Payload.$": "$.operation"
+      },
+      "ResultPath": "$.vectorStore",
+      "Next": "PlanIngest"
+    },
+    "PlanIngest": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${PlanIngestFunctionArn}",
+        "Payload.$": "$.vectorStore"
+      },
+      "ResultPath": "$.plan",
+      "Next": "PlanChoice"
+    },
+    "PlanChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.plan.Payload.usePrechunk",
+          "BooleanEquals": true,
+          "Next": "DispatchPrechunk"
+        }
+      ],
+      "Default": "UploadFile"
+    },
+    "DispatchPrechunk": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${PrechunkDispatchFunctionArn}",
+        "Payload.$": "$.plan"
+      },
+      "ResultPath": "$.prechunk",
+      "Next": "UploadFile"
+    },
+    "UploadFile": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${UploadFileFunctionArn}",
+        "Payload.$": "$.plan"
+      },
+      "ResultPath": "$.upload",
+      "Next": "AttachVectorStore"
+    },
+    "AttachVectorStore": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${AttachVectorStoreFunctionArn}",
+        "Payload.$": "$.upload"
+      },
+      "ResultPath": "$.attach",
+      "Next": "PollOpenAI"
+    },
+    "PollOpenAI": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${PollOpenAIFunctionArn}",
+        "Payload.$": "$.attach"
+      },
+      "ResultPath": "$.poll",
+      "Next": "CommitSuccess"
+    },
+    "CommitSuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CommitResultFunctionArn}",
+        "Payload.$": "$.poll"
+      },
+      "ResultPath": "$.commit",
+      "Next": "Notify"
+    },
+    "CommitNoop": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CommitResultFunctionArn}",
+        "Payload.$": "$.operation"
+      },
+      "ResultPath": "$.commit",
+      "Next": "Notify"
+    },
+    "TombstoneDelete": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CommitResultFunctionArn}",
+        "Payload.$": "$.operation"
+      },
+      "ResultPath": "$.commit",
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload.$": "$.commit"
+      },
+      "End": true
+    }
+  }
+}
